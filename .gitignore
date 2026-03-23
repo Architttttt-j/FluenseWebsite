@@ -1,0 +1,8 @@
+node_modules/
+.next/
+.env.local
+.env.docker
+public/uploads/avatars/*.jpg
+public/uploads/avatars/*.png
+*.log
+.DS_Store
