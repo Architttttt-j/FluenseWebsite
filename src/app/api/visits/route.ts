@@ -37,8 +37,21 @@ export async function GET(req: NextRequest) {
     if (date) query.date = date;
     else query.date = { $gte: daysAgo(days) };
 
-    const visits = await Visit.find(query).sort({ date: -1 }).limit(limit);
-    return ok(visits.map(serializeDoc));
+    const visits = await Visit.find(query).sort({ date: -1 }).limit(limit).lean();
+
+    const clientIds = Array.from(new Set(visits.map((v: any) => v.clientId)));
+    const clients = await import('@/lib/models').then(m => m.Client.find({ _id: { $in: clientIds } }).lean());
+    const clientMap = clients.reduce((acc: any, c: any) => {
+      acc[c._id.toString()] = c.name;
+      return acc;
+    }, {});
+
+    const populatedVisits = visits.map((v: any) => ({
+      ...v,
+      clientName: clientMap[v.clientId] || 'Unknown Client',
+    }));
+
+    return ok(populatedVisits.map(serializeDoc));
   } catch (e: any) {
     return err(e.message, 500);
   }

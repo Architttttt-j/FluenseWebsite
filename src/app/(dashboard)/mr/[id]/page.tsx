@@ -135,11 +135,11 @@ export default function MRDetailPage() {
         <h3 style={{ fontSize:15, fontWeight:700, marginBottom:16 }}>Recent Visits</h3>
         <div className="table-wrapper">
           <table>
-            <thead><tr><th>Client ID</th><th>Date</th><th>Check In</th><th>Check Out</th><th>Products</th></tr></thead>
+            <thead><tr><th>Client Name</th><th>Date</th><th>Check In</th><th>Check Out</th><th>Products</th><th>Location</th><th>Photo</th></tr></thead>
             <tbody>
               {visits.map((v: any) => (
                 <tr key={v.id}>
-                  <td style={{ fontSize:12, color:"var(--text-muted)", fontFamily:"monospace" }}>{v.clientId}</td>
+                  <td style={{ fontSize:13, color:"var(--text-secondary)", fontWeight: 500 }}>{v.clientName || v.clientId}</td>
                   <td style={{ fontSize:13, color:"var(--text-secondary)" }}>{new Date(v.date).toLocaleDateString("en", { day:"numeric", month:"short" })}</td>
                   <td style={{ fontSize:13, fontFamily:"monospace", color:"var(--accent-2)" }}>{v.checkIn || "—"}</td>
                   <td style={{ fontSize:13, fontFamily:"monospace", color:"var(--text-secondary)" }}>{v.checkOut || "—"}</td>
@@ -149,6 +149,18 @@ export default function MRDetailPage() {
                         <span key={pid} style={{ background:"rgba(59,110,248,0.1)", color:"var(--accent)", borderRadius:4, padding:"2px 7px", fontSize:11 }}>{PRODUCTS[pid] || pid}</span>
                       ))}
                     </div>
+                  </td>
+                  <td style={{ fontSize:11, color:"var(--text-muted)" }}>
+                    {v.checkInLocation && <div style={{ marginBottom:2 }}>In: {v.checkInLocation.lat.toFixed(4)}, {v.checkInLocation.lng.toFixed(4)}</div>}
+                    {v.checkOutLocation && <div>Out: {v.checkOutLocation.lat.toFixed(4)}, {v.checkOutLocation.lng.toFixed(4)}</div>}
+                    {!v.checkInLocation && !v.checkOutLocation && "—"}
+                  </td>
+                  <td>
+                    {v.photoUrl ? (
+                      <a href={v.photoUrl} target="_blank" rel="noreferrer">
+                        <img src={v.photoUrl} alt="visit" style={{ width: 40, height: 40, objectFit:"cover", borderRadius:4, border:"1px solid var(--border-light)" }} />
+                      </a>
+                    ) : "—"}
                   </td>
                 </tr>
               ))}
