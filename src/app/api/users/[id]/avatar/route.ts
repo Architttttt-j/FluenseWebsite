@@ -12,7 +12,7 @@ export async function POST(req: NextRequest, { params }: Ctx) {
     await connectDB();
     const me = await getAuthUserDoc(req);
     if (!me) return err("Unauthorized", 401);
-    if (me._id.toString() !== params.id) return err("You can only change your own avatar", 403);
+    if (me.role === "mr" && me._id.toString() !== params.id) return err("You can only change your own avatar", 403);
 
     const formData = await req.formData();
     const file = formData.get("file") as File;

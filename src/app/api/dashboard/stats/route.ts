@@ -10,9 +10,16 @@ export async function GET(req: NextRequest) {
     if (!me) return err("Unauthorized", 401);
 
     const { searchParams } = new URL(req.url);
+    const targetMrId = searchParams.get("mrId");
 
     let mrIds: string[] = [];
-    if (me.role === "mr") {
+    if (targetMrId) {
+      const target = await User.findById(targetMrId);
+      if (!target || target.role !== "mr") return err("MR not found", 404);
+      if (me.role === "mr" && target._id.toString() !== me._id.toString()) return err("Unauthorized", 403);
+      if (me.role === "admin" && target.regionId !== me.regionId) return err("Unauthorized", 403);
+      mrIds = [targetMrId];
+    } else if (me.role === "mr") {
       mrIds = [me._id.toString()];
     } else if (me.role === "admin") {
       const mrs = await User.find({ regionId: me.regionId, role: "mr", status: "active" });

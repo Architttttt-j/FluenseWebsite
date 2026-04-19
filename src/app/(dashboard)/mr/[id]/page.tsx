@@ -2,6 +2,7 @@
 import { useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { api } from "@/lib/api-client";
+import { useAuth } from "@/context/AuthContext";
 import { LineChart, Line, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell } from "recharts";
 
 const PRODUCTS: Record<string, string> = { p001:"Fluensol 500mg", p002:"Caldent Plus", p003:"NeuPlex D3", p004:"Gastrovex Syrup", p005:"CardiShield 10", p006:"DiabaCare XR", p007:"RespiClear", p008:"PainEase 650" };
@@ -16,6 +17,7 @@ const Tip = ({ active, payload, label }: any) => active && payload?.length ? (
 export default function MRDetailPage() {
   const { id } = useParams<{ id: string }>();
   const router = useRouter();
+  const { activeUser } = useAuth();
   const [user, setUser]     = useState<any>(null);
   const [visits, setVisits] = useState<any[]>([]);
   const [trend, setTrend]   = useState<any[]>([]);
@@ -135,7 +137,7 @@ export default function MRDetailPage() {
         <h3 style={{ fontSize:15, fontWeight:700, marginBottom:16 }}>Recent Visits</h3>
         <div className="table-wrapper">
           <table>
-            <thead><tr><th>Client Name</th><th>Date</th><th>Check In</th><th>Check Out</th><th>Products</th><th>Location</th><th>Photo</th></tr></thead>
+            <thead><tr><th>Client Name</th><th>Date</th><th>Check In</th><th>Check Out</th><th>Products</th><th>Location</th><th>Photo</th>{(activeUser?.role === "admin" || activeUser?.role === "head_admin") && <th>Actions</th>}</tr></thead>
             <tbody>
               {visits.map((v: any) => (
                 <tr key={v.id}>
@@ -162,6 +164,16 @@ export default function MRDetailPage() {
                       </a>
                     ) : "—"}
                   </td>
+                  {(activeUser?.role === "admin" || activeUser?.role === "head_admin") && (
+                    <td>
+                      <button className="btn btn-danger btn-sm" onClick={async () => {
+                        if (confirm("Delete this visit?")) {
+                          await api.deleteVisit(v.id);
+                          setVisits(visits.filter(vv => vv.id !== v.id));
+                        }
+                      }}>Delete</button>
+                    </td>
+                  )}
                 </tr>
               ))}
             </tbody>

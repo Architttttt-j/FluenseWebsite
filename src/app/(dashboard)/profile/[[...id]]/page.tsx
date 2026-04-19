@@ -19,18 +19,27 @@ export default function ProfilePage() {
   const isSelf = activeUser?.id === targetId;
   const isHA   = activeUser?.role === "head_admin";
   const isAdmin = activeUser?.role === "admin";
-  const canEditAll = isHA || (isAdmin && user?.role === "mr" && user?.regionId === activeUser?.regionId);
+  const canEditAll = isHA;
 
   useEffect(() => {
     if (!targetId) return;
-    Promise.all([
-      api.getUser(targetId),
-      api.getRegions(),
-      api.getDashboardStats(),
-    ]).then(([u, r, s]) => {
-      setUser(u); setRegions(r); setStats(s);
-      setForm({ name: u.name, phone: u.phone || "", dob: u.dob || "", regionId: u.regionId || "", role: u.role });
-    });
+
+    const loadData = async () => {
+      const userData = await api.getUser(targetId);
+      const regionsData = await api.getRegions();
+      setUser(userData);
+      setRegions(regionsData);
+      setForm({ name: userData.name, phone: userData.phone || "", dob: userData.dob || "", regionId: userData.regionId || "", role: userData.role });
+
+      if (userData.role === "mr") {
+        const statsData = await api.getDashboardStats({ mrId: targetId });
+        setStats(statsData);
+      } else {
+        setStats(null);
+      }
+    };
+
+    loadData();
   }, [targetId]);
 
   const handleSave = async () => {
@@ -56,10 +65,14 @@ export default function ProfilePage() {
         <div className="card" style={{ marginBottom:20 }}>
           <div style={{ display:"flex", gap:20, alignItems:"flex-start" }}>
             <div style={{ position:"relative" }}>
-              <div className="avatar avatar-lg" style={{ background:`linear-gradient(135deg, ${roleColor[user.role]}, var(--accent))` }}>
-                {user.name.split(" ").map((n: string) => n[0]).join("").slice(0,2)}
-              </div>
-              {isSelf && (
+              {user.avatarUrl ? (
+                <img src={user.avatarUrl} alt="Avatar" className="avatar avatar-lg" style={{ objectFit: "cover" }} />
+              ) : (
+                <div className="avatar avatar-lg" style={{ background:`linear-gradient(135deg, ${roleColor[user.role]}, var(--accent))` }}>
+                  {user.name.split(" ").map((n: string) => n[0]).join("").slice(0,2)}
+                </div>
+              )}
+              {(isSelf || isHA || isAdmin) && (
                 <label style={{ position:"absolute", bottom:0, right:0, width:24, height:24, borderRadius:"50%", background:"var(--accent)", border:"2px solid var(--bg-card)", cursor:"pointer", display:"flex", alignItems:"center", justifyContent:"center" }}>
                   <svg width="11" height="11" fill="none" viewBox="0 0 24 24" stroke="#fff" strokeWidth="2.5"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg>
                   <input type="file" accept="image/*" style={{ display:"none" }} onChange={async e => {
@@ -91,7 +104,8 @@ export default function ProfilePage() {
 
               <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:0 }}>
                 {[
-                  { label:"Work Email", value: user.email,    field: null },
+                  { label:"Name",       value: user.name,     field:"name" },
+                  { label:"Work Email", value: user.email,    field:"email", type:"email" },
                   { label:"Phone",      value: user.phone,    field:"phone" },
                   { label:"DOB",        value: user.dob ? new Date(user.dob).toLocaleDateString("en",{day:"numeric",month:"long",year:"numeric"}) : "—", field:"dob", type:"date" },
                   { label:"Region",     value: user.region,   field:"regionId", isSelect: true },

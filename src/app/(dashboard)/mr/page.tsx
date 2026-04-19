@@ -101,8 +101,11 @@ export default function MRPage() {
                   <td style={{ fontSize:13 }}>{u.region}</td>
                   <td><span className={`badge badge-${u.status}`}>{u.status}</span></td>
                   <td>
-                    <div style={{ display:"flex", gap:6 }}>
+                    <div style={{ display:"flex", gap:6, flexWrap:"wrap" }}>
                       <button className="btn btn-secondary btn-sm" onClick={() => router.push(`/mr/${u.id}`)}>View</button>
+                      {(isHA || (isAdmin && u.role === "mr")) && (
+                        <button className="btn btn-primary btn-sm" onClick={() => router.push(`/profile/${u.id}`)}>Edit</button>
+                      )}
                       {(isHA || (isAdmin && u.role === "mr")) && <>
                         <button className={`btn btn-sm ${u.status === "active" ? "btn-danger" : "btn-success"}`} onClick={() => handleToggle(u.id)}>
                           {u.status === "active" ? "Deactivate" : "Activate"}

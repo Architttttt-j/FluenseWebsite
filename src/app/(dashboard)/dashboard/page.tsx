@@ -21,6 +21,10 @@ export default function DashboardPage() {
   const [mrPerf, setMrPerf]       = useState<any[]>([]);
   const [products, setProducts]   = useState<any[]>([]);
   const [goals, setGoals]         = useState<any[]>([]);
+  const [mrs, setMrs]             = useState<any[]>([]);
+  const [regions, setRegions]     = useState<any[]>([]);
+  const [showAddMember, setShowAddMember] = useState(false);
+  const [newMember, setNewMember] = useState({ name: "", email: "", password: "", role: "mr", regionId: activeUser?.role === "admin" ? activeUser.regionId : "" });
   const [loading, setLoading]     = useState(true);
 
   const load = useCallback(async () => {
@@ -45,6 +49,17 @@ export default function DashboardPage() {
             .map(([pid, count]) => ({ name: PRODUCTS[pid] || pid, mentions: count }))
             .sort((a: any, b: any) => b.mentions - a.mentions).slice(0, 6)
         );
+        // Fetch MRs for management
+        let query: any = { role: "mr" };
+        if (activeUser.role === "admin") {
+          query.regionId = activeUser.regionId;
+        }
+        const [usersRes, regs] = await Promise.all([
+          api.getUsers(query),
+          api.getRegions(),
+        ]);
+        setMrs(usersRes.users || []);
+        setRegions(regs);
       }
     } finally { setLoading(false); }
   }, [activeUser]);
@@ -168,6 +183,89 @@ export default function DashboardPage() {
           </div>
         )}
       </div>
+
+      {/* MR Management */}
+      {!isMR && (
+        <div className="card" style={{ marginTop:24 }}>
+          <div className="flex-between" style={{ marginBottom:16 }}>
+            <h3 style={{ fontSize:15, fontWeight:700 }}>MR Management</h3>
+            <button className="btn btn-primary btn-sm" onClick={() => setShowAddMember(true)}>Add Member</button>
+          </div>
+
+          {showAddMember && (
+            <div style={{ marginBottom:20, padding:16, background:"var(--bg-input)", borderRadius:8 }}>
+              <h4 style={{ fontSize:14, fontWeight:600, marginBottom:12 }}>Add New Member</h4>
+              <div style={{ display:"grid", gridTemplateColumns:"repeat(auto-fit, minmax(200px, 1fr))", gap:12 }}>
+                <div>
+                  <label className="form-label">Name</label>
+                  <input className="form-input" value={newMember.name} onChange={e => setNewMember({ ...newMember, name: e.target.value })} />
+                </div>
+                <div>
+                  <label className="form-label">Email</label>
+                  <input className="form-input" type="email" value={newMember.email} onChange={e => setNewMember({ ...newMember, email: e.target.value })} />
+                </div>
+                <div>
+                  <label className="form-label">Password</label>
+                  <input className="form-input" type="password" value={newMember.password} onChange={e => setNewMember({ ...newMember, password: e.target.value })} />
+                </div>
+                <div>
+                  <label className="form-label">Role</label>
+                  <select className="form-select" value={newMember.role} onChange={e => setNewMember({ ...newMember, role: e.target.value })}>
+                    {activeUser?.role === "head_admin" ? (
+                      <>
+                        <option value="mr">Medical Representative</option>
+                        <option value="admin">Regional Admin</option>
+                        <option value="head_admin">Head Admin</option>
+                      </>
+                    ) : (
+                      <option value="mr">Medical Representative</option>
+                    )}
+                  </select>
+                </div>
+                <div>
+                  <label className="form-label">Region</label>
+                  <select className="form-select" value={newMember.regionId} onChange={e => setNewMember({ ...newMember, regionId: e.target.value })} disabled={activeUser?.role === "admin"}>
+                    <option value="">Select Region</option>
+                    {regions.map((r: any) => <option key={r.id} value={r.id}>{r.name}</option>)}
+                  </select>
+                </div>
+              </div>
+              <div style={{ display:"flex", gap:8, marginTop:12 }}>
+                <button className="btn btn-primary btn-sm" onClick={async () => {
+                  try {
+                    await api.createUser(newMember);
+                    setNewMember({ name: "", email: "", password: "", role: "mr", regionId: activeUser?.role === "admin" ? activeUser.regionId : "" });
+                    setShowAddMember(false);
+                    load(); // Reload MRs
+                  } catch (e) {
+                    alert("Error creating user");
+                  }
+                }}>Create</button>
+                <button className="btn btn-secondary btn-sm" onClick={() => setShowAddMember(false)}>Cancel</button>
+              </div>
+            </div>
+          )}
+
+          <div className="table-wrapper">
+            <table>
+              <thead><tr><th>Name</th><th>Email</th><th>Region</th><th>Status</th><th>Actions</th></tr></thead>
+              <tbody>
+                {mrs.map((mr: any) => (
+                  <tr key={mr.id}>
+                    <td style={{ fontWeight:500 }}>{mr.name}</td>
+                    <td style={{ fontSize:13, color:"var(--text-secondary)" }}>{mr.email}</td>
+                    <td style={{ fontSize:13, color:"var(--text-secondary)" }}>{mr.region}</td>
+                    <td><span className={`badge badge-${mr.status}`}>{mr.status}</span></td>
+                    <td>
+                      <button className="btn btn-secondary btn-sm" onClick={() => window.location.href = `/profile/${mr.id}`}>Edit Profile</button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

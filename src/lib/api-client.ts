@@ -63,6 +63,7 @@ export const api = {
     request("/attendance/check-in",  { method: "POST", body: JSON.stringify({ location }) }),
   checkOut: (location?: { lat: number; lng: number }) =>
     request("/attendance/check-out", { method: "POST", body: JSON.stringify({ location }) }),
+  deleteAttendance: (id: string) => request(`/attendance/${id}`, { method: "DELETE" }),
   getTodaySummary: () => request("/attendance/today-summary"),
 
   // Visits
@@ -72,6 +73,7 @@ export const api = {
   },
   logVisit: (data: Record<string, unknown>) =>
     request("/visits", { method: "POST", body: JSON.stringify(data) }),
+  deleteVisit: (id: string) => request(`/visits/${id}`, { method: "DELETE" }),
   getVisitTrend: (params: Record<string, string> = {}) => {
     const q = new URLSearchParams(Object.fromEntries(Object.entries(params).filter(([,v]) => v)));
     return request(`/visits/trend?${q}`);

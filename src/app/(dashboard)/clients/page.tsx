@@ -10,6 +10,9 @@ export default function ClientsPage() {
   const [search, setSearch]   = useState("");
   const [typeFilter, setType] = useState("");
   const [loading, setLoading] = useState(true);
+  const [showAdd, setShowAdd] = useState(false);
+  const [newClient, setNewClient] = useState({ name: "", type: "doctor", specialty: "", address: "", phone: "", regionId: "" });
+  const [regions, setRegions] = useState<any[]>([]);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -25,6 +28,10 @@ export default function ClientsPage() {
   }, [search, typeFilter]);
 
   useEffect(() => { load(); }, [load]);
+
+  useEffect(() => {
+    api.getRegions().then(setRegions);
+  }, []);
 
   const getVisitCount = (clientId: string) => visits.filter((v: any) => v.clientId === clientId).length;
   const getLastVisit  = (clientId: string) => {
@@ -42,6 +49,9 @@ export default function ClientsPage() {
           <h1 className="page-title">Clients</h1>
           <p style={{ fontSize:13, color:"var(--text-secondary)" }}>{clients.length} clients in your territory</p>
         </div>
+        {(activeUser?.role === "admin" || activeUser?.role === "head_admin") && (
+          <button className="btn btn-primary" onClick={() => setShowAdd(true)}>Add Client</button>
+        )}
       </div>
 
       <div className="grid-3" style={{ marginBottom:24 }}>
@@ -71,11 +81,60 @@ export default function ClientsPage() {
         </select>
       </div>
 
+      {showAdd && (
+        <div className="card" style={{ marginBottom:20 }}>
+          <h3 style={{ fontSize:15, fontWeight:700, marginBottom:16 }}>Add New Client</h3>
+          <div style={{ display:"grid", gridTemplateColumns:"repeat(auto-fit, minmax(200px, 1fr))", gap:16 }}>
+            <div>
+              <label className="form-label">Name</label>
+              <input className="form-input" value={newClient.name} onChange={e => setNewClient({ ...newClient, name: e.target.value })} />
+            </div>
+            <div>
+              <label className="form-label">Type</label>
+              <select className="form-select" value={newClient.type} onChange={e => setNewClient({ ...newClient, type: e.target.value })}>
+                <option value="doctor">Doctor</option>
+                <option value="retailer">Retailer</option>
+                <option value="stockist">Stockist</option>
+              </select>
+            </div>
+            <div>
+              <label className="form-label">Specialty</label>
+              <input className="form-input" value={newClient.specialty} onChange={e => setNewClient({ ...newClient, specialty: e.target.value })} />
+            </div>
+            <div>
+              <label className="form-label">Phone</label>
+              <input className="form-input" value={newClient.phone} onChange={e => setNewClient({ ...newClient, phone: e.target.value })} />
+            </div>
+            <div>
+              <label className="form-label">Address</label>
+              <input className="form-input" value={newClient.address} onChange={e => setNewClient({ ...newClient, address: e.target.value })} />
+            </div>
+            <div>
+              <label className="form-label">Region</label>
+              <select className="form-select" value={newClient.regionId} onChange={e => setNewClient({ ...newClient, regionId: e.target.value })}>
+                <option value="">Select Region</option>
+                {regions.map((r: any) => <option key={r.id} value={r.id}>{r.name}</option>)}
+              </select>
+            </div>
+          </div>
+          <div style={{ display:"flex", gap:8, marginTop:16 }}>
+            <button className="btn btn-primary" onClick={async () => {
+              await api.createClient(newClient);
+              setNewClient({ name: "", type: "doctor", specialty: "", address: "", phone: "", regionId: "" });
+              setShowAdd(false);
+              load();
+            }}>Add Client</button>
+            <button className="btn btn-secondary" onClick={() => setShowAdd(false)}>Cancel</button>
+          </div>
+        </div>
+      )}
+
       <div className="card" style={{ padding:0 }}>
         <div className="table-wrapper">
           <table>
             <thead><tr>
               <th>Client</th><th>Type</th><th>Region</th><th>Address</th><th>Monthly Visits</th><th>Last Visit</th>
+              {(activeUser?.role === "admin" || activeUser?.role === "head_admin") && <th>Actions</th>}
             </tr></thead>
             <tbody>
               {clients.map((c: any) => {
@@ -98,6 +157,16 @@ export default function ClientsPage() {
                     <td style={{ fontSize:13, color:"var(--text-secondary)" }}>
                       {lv ? new Date(lv.date).toLocaleDateString("en", { day:"numeric", month:"short" }) : <span style={{ color:"var(--accent-danger)" }}>Never</span>}
                     </td>
+                    {(activeUser?.role === "admin" || activeUser?.role === "head_admin") && (
+                      <td>
+                        <button className="btn btn-danger btn-sm" onClick={async () => {
+                          if (confirm("Delete this client?")) {
+                            await api.deleteClient(c.id);
+                            setClients(clients.filter(cc => cc.id !== c.id));
+                          }
+                        }}>Delete</button>
+                      </td>
+                    )}
                   </tr>
                 );
               })}

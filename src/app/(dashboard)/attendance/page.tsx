@@ -93,6 +93,7 @@ export default function AttendancePage() {
             <thead><tr>
               {!isMR && <th>MR</th>}
               <th>Date</th><th>Check In</th><th>Check Out</th><th>Duration</th><th>Location</th><th>Status</th>
+              {!isMR && <th>Actions</th>}
             </tr></thead>
             <tbody>
               {logs.map((log: any) => {
@@ -127,6 +128,16 @@ export default function AttendancePage() {
                         {status === "completed" ? "Completed" : status === "checked-in" ? "Checked In" : "Absent"}
                       </span>
                     </td>
+                    {!isMR && (
+                      <td>
+                        <button className="btn btn-danger btn-sm" onClick={async () => {
+                          if (confirm("Delete this attendance record?")) {
+                            await api.deleteAttendance(log.id);
+                            setLogs(logs.filter(l => l.id !== log.id));
+                          }
+                        }}>Delete</button>
+                      </td>
+                    )}
                   </tr>
                 );
               })}

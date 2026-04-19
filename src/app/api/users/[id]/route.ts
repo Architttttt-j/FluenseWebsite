@@ -14,10 +14,7 @@ export async function GET(req: NextRequest, { params }: Ctx) {
     const user = await User.findById(params.id);
     if (!user) return err("User not found", 404);
 
-    if (me.role === "admin" &&
-        user.regionId !== me.regionId &&
-        user._id.toString() !== me._id.toString())
-      return err("Access denied", 403);
+    if (me.role === "mr" && user._id.toString() !== me._id.toString()) return err("MRs can only view their own profile", 403);
 
     return ok(serializeUser(user));
   } catch (e: any) {
@@ -38,15 +35,20 @@ export async function PATCH(req: NextRequest, { params }: Ctx) {
 
     if (me.role === "mr") return err("MRs cannot edit profiles", 403);
     if (me.role === "admin") {
-      if (target.role !== "mr" || target.regionId !== me.regionId)
-        return err("Admins can only edit MRs in their region", 403);
-      delete body.role; // admins cannot promote
+      // Admins can edit anyone, but cannot promote to admin or head_admin
+      if (body.role && body.role !== "mr") return err("Admins cannot change roles to admin or head_admin", 403);
+    }
+    if (me.role === "head_admin") {
+      // Head admins can do anything
     }
 
-    const allowed = ["name", "phone", "dob", "region", "regionId", "role"];
+    const allowed = ["name", "email", "phone", "dob", "region", "regionId", "role"];
     const update: Record<string, any> = {};
     for (const key of allowed) {
-      if (body[key] !== undefined) update[key] = body[key];
+      if (body[key] !== undefined) {
+        if (key === "email") update.email = body.email.toLowerCase();
+        else update[key] = body[key];
+      }
     }
 
     const updated = await User.findByIdAndUpdate(params.id, update, { new: true });
