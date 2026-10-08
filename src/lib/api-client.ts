@@ -64,7 +64,10 @@ export const api = {
   checkOut: (location?: { lat: number; lng: number }) =>
     request("/attendance/check-out", { method: "POST", body: JSON.stringify({ location }) }),
   deleteAttendance: (id: string) => request(`/attendance/${id}`, { method: "DELETE" }),
-  getTodaySummary: () => request("/attendance/today-summary"),
+  getTodaySummary: (params: Record<string, string> = {}) => {
+    const q = new URLSearchParams(Object.fromEntries(Object.entries(params).filter(([,v]) => v)));
+    return request(`/attendance/today-summary?${q}`);
+  },
 
   // Visits
   getVisits: (params: Record<string, string> = {}) => {
@@ -95,6 +98,20 @@ export const api = {
   getRegionComparison: (params: Record<string, string> = {}) => { const q = new URLSearchParams(Object.fromEntries(Object.entries(params).filter(([,v])=>v))); return request(`/dashboard/region-comparison?${q}`); },
   getGoals: (params: Record<string, string> = {}) => { const q = new URLSearchParams(Object.fromEntries(Object.entries(params).filter(([,v])=>v))); return request(`/dashboard/goals?${q}`); },
   createGoal: (data: Record<string, unknown>) => request("/dashboard/goals", { method: "POST", body: JSON.stringify(data) }),
+
+  // Products
+  getProducts: () => request("/products"),
+  createProduct: (data: Record<string, unknown>) => request("/products", { method: "POST", body: JSON.stringify(data) }),
+  updateProduct: (id: string, data: Record<string, unknown>) => request(`/products/${id}`, { method: "PATCH", body: JSON.stringify(data) }),
+  uploadBrochure: (id: string, file: File) => {
+    const form = new FormData(); form.append("file", file);
+    return request(`/products/${id}/brochure`, { method: "POST", body: form });
+  },
+  uploadProductImage: (id: string, file: File) => {
+    const form = new FormData(); form.append("file", file);
+    return request(`/products/${id}/image`, { method: "POST", body: form });
+  },
+  deleteProduct: (id: string) => request(`/products/${id}`, { method: "DELETE" }),
 };
 
 export default api;

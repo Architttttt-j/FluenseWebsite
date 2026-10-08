@@ -3,18 +3,25 @@ import { useEffect, useState, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/context/AuthContext";
 import { api } from "@/lib/api-client";
+import { downloadCsv } from "@/lib/csv";
+
+const localDate = () => new Date().toLocaleDateString("en-CA");
 
 export default function MRPage() {
   const { activeUser, impersonateUser } = useAuth();
   const router = useRouter();
   const [users, setUsers]         = useState<any[]>([]);
   const [regions, setRegions]     = useState<any[]>([]);
+  const [targets, setTargets]     = useState<Record<string, any>>({});
   const [search, setSearch]       = useState("");
   const [filterRegion, setFilterRegion] = useState("");
   const [filterStatus, setFilterStatus] = useState("");
   const [showModal, setShowModal] = useState(false);
+  const [targetMr, setTargetMr] = useState<any>(null);
   const [saving, setSaving]       = useState(false);
-  const [form, setForm]           = useState({ name:"", email:"", password:"mr123", role:"mr", regionId:"", phone:"", dob:"" });
+  const [savingTarget, setSavingTarget] = useState(false);
+  const [form, setForm]           = useState({ name:"", email:"", password:"", role:"mr", regionId:"", phone:"", dob:"" });
+  const [targetForm, setTargetForm] = useState({ date: localDate(), target: "", description: "" });
 
   const load = useCallback(async () => {
     const params: any = {};
@@ -23,7 +30,14 @@ export default function MRPage() {
     if (filterStatus) params.status = filterStatus;
     const data = await api.getUsers(params);
     setUsers(data.users || []);
-  }, [search, filterRegion, filterStatus]);
+    if (activeUser?.role !== "mr") {
+      const goals = await api.getGoals({ date: localDate(), ...(filterRegion ? { regionId: filterRegion } : {}) });
+      setTargets((goals || []).reduce((map: Record<string, any>, goal: any) => {
+        map[goal.mrId] = goal;
+        return map;
+      }, {}));
+    }
+  }, [search, filterRegion, filterStatus, activeUser?.role]);
 
   useEffect(() => { load(); }, [load]);
   useEffect(() => { api.getRegions().then(setRegions); }, []);
@@ -34,15 +48,38 @@ export default function MRPage() {
   };
 
   const handleAdd = async () => {
-    if (!form.name || !form.email || !form.regionId) return;
+    if (!form.name || !form.email || !form.password || !form.regionId) return;
     setSaving(true);
     try {
       const region = regions.find((r: any) => r.id === form.regionId);
       await api.createUser({ ...form, region: region?.name || "" });
       setShowModal(false);
-      setForm({ name:"", email:"", password:"mr123", role:"mr", regionId:"", phone:"", dob:"" });
+      setForm({ name:"", email:"", password:"", role:"mr", regionId:"", phone:"", dob:"" });
       load();
     } finally { setSaving(false); }
+  };
+
+  const handleTarget = async () => {
+    if (!targetMr || !targetForm.date || targetForm.target === "") return;
+    setSavingTarget(true);
+    try {
+      await api.createGoal({ mrId: targetMr.id, ...targetForm, target: Number(targetForm.target) });
+      setTargetMr(null);
+      setTargetForm({ date: localDate(), target: "", description: "" });
+      await load();
+    } finally { setSavingTarget(false); }
+  };
+
+  const exportCsv = () => {
+    if (!users.length) return;
+    downloadCsv("mr-management-report.csv", ["Name", "Email", "Role", "Region", "Status", "Phone"], users.map((user: any) => [
+      user.name,
+      user.email,
+      roleLabel[user.role] || user.role,
+      user.region,
+      user.status,
+      user.phone,
+    ]));
   };
 
   const roleLabel: Record<string, string> = { head_admin:"Head Admin", admin:"Regional Admin", mr:"Medical Rep" };
@@ -56,7 +93,10 @@ export default function MRPage() {
           <h1 className="page-title">MR Management</h1>
           <p style={{ fontSize:13, color:"var(--text-secondary)" }}>{users.length} users found</p>
         </div>
-        <button className="btn btn-primary" onClick={() => setShowModal(true)}>+ Add Member</button>
+        <div style={{ display:"flex", gap:8 }}>
+          <button className="btn btn-secondary" onClick={exportCsv} disabled={!users.length}>Download CSV</button>
+          <button className="btn btn-primary" onClick={() => setShowModal(true)}>+ Add Member</button>
+        </div>
       </div>
 
       {/* Filters */}
@@ -82,7 +122,7 @@ export default function MRPage() {
         <div className="table-wrapper">
           <table>
             <thead><tr>
-              <th>Name</th><th>Email</th><th>Role</th><th>Region</th><th>Status</th><th>Actions</th>
+              <th>Name</th><th>Email</th><th>Role</th><th>Region</th><th>Today&apos;s Target</th><th>Status</th><th>Actions</th>
             </tr></thead>
             <tbody>
               {users.map((u: any) => (
@@ -99,6 +139,9 @@ export default function MRPage() {
                   <td style={{ color:"var(--text-secondary)", fontSize:13 }}>{u.email}</td>
                   <td><span className={`badge badge-${u.role}`}>{roleLabel[u.role]}</span></td>
                   <td style={{ fontSize:13 }}>{u.region}</td>
+                  <td style={{ fontSize:13, fontWeight:600, color:targets[u.id] ? "var(--accent-2)" : "var(--text-muted)" }}>
+                    {targets[u.id] ? `${targets[u.id].achieved || 0} / ${targets[u.id].target}` : "Not assigned"}
+                  </td>
                   <td><span className={`badge badge-${u.status}`}>{u.status}</span></td>
                   <td>
                     <div style={{ display:"flex", gap:6, flexWrap:"wrap" }}>
@@ -111,6 +154,7 @@ export default function MRPage() {
                           {u.status === "active" ? "Deactivate" : "Activate"}
                         </button>
                         <button className="btn btn-secondary btn-sm" onClick={() => impersonateUser(u.id)}>Login as</button>
+                        {u.role === "mr" && <button className="btn btn-secondary btn-sm" onClick={() => setTargetMr(u)}>Set Target</button>}
                       </>}
                     </div>
                   </td>
@@ -162,12 +206,44 @@ export default function MRPage() {
             </div>
             <div className="form-group">
               <label className="form-label">Initial Password</label>
-              <input className="form-input" value={form.password} onChange={e => setForm({ ...form, password: e.target.value })} />
+              <input className="form-input" type="password" autoComplete="new-password" required value={form.password} onChange={e => setForm({ ...form, password: e.target.value })} />
             </div>
             <div style={{ display:"flex", gap:10, marginTop:8 }}>
               <button className="btn btn-secondary" style={{ flex:1, justifyContent:"center" }} onClick={() => setShowModal(false)}>Cancel</button>
               <button className="btn btn-primary" style={{ flex:1, justifyContent:"center" }} onClick={handleAdd} disabled={saving}>
                 {saving ? <span className="spinner" /> : "Add Member"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {targetMr && (
+        <div className="modal-overlay" onClick={e => e.target === e.currentTarget && setTargetMr(null)}>
+          <div className="modal fade-in">
+            <div className="flex-between" style={{ marginBottom:20 }}>
+              <div>
+                <h3 style={{ fontSize:18, fontWeight:700 }}>Set Daily Target</h3>
+                <p style={{ fontSize:12, color:"var(--text-secondary)", marginTop:4 }}>{targetMr.name}</p>
+              </div>
+              <button onClick={() => setTargetMr(null)} style={{ background:"none", border:"none", color:"var(--text-secondary)", cursor:"pointer", fontSize:20 }}>×</button>
+            </div>
+            <div className="form-group">
+              <label className="form-label">Date</label>
+              <input className="form-input" type="date" value={targetForm.date} onChange={e => setTargetForm({ ...targetForm, date: e.target.value })} />
+            </div>
+            <div className="form-group">
+              <label className="form-label">Target Calls *</label>
+              <input className="form-input" type="number" min="0" step="1" placeholder="e.g. 20" value={targetForm.target} onChange={e => setTargetForm({ ...targetForm, target: e.target.value })} />
+            </div>
+            <div className="form-group">
+              <label className="form-label">Note</label>
+              <input className="form-input" placeholder="Optional note" value={targetForm.description} onChange={e => setTargetForm({ ...targetForm, description: e.target.value })} />
+            </div>
+            <div style={{ display:"flex", gap:10, marginTop:8 }}>
+              <button className="btn btn-secondary" style={{ flex:1, justifyContent:"center" }} onClick={() => setTargetMr(null)}>Cancel</button>
+              <button className="btn btn-primary" style={{ flex:1, justifyContent:"center" }} onClick={handleTarget} disabled={savingTarget || !targetForm.target}>
+                {savingTarget ? <span className="spinner" /> : "Save Target"}
               </button>
             </div>
           </div>

@@ -17,7 +17,7 @@ export async function DELETE(req: NextRequest, { params }: Ctx) {
 
     if (me.role === "admin") {
       const mr = await User.findById(attendance.mrId);
-      if (mr && mr.regionId !== me.regionId) return err("Access denied", 403);
+      if (!mr || mr.role !== "mr" || mr.regionId !== me.regionId) return err("Access denied", 403);
     }
 
     await Attendance.findByIdAndDelete(params.id);

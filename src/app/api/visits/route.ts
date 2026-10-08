@@ -25,30 +25,46 @@ export async function GET(req: NextRequest) {
       } else if (me.role === "admin") {
         const regionMrs = await User.find({ regionId: me.regionId, role: "mr" });
         query.mrId = { $in: regionMrs.map((u: any) => u._id.toString()) };
+      } else if (me.role === "head_admin") {
+        const regionId = searchParams.get("regionId");
+        if (regionId) {
+          const regionMrs = await User.find({ regionId, role: "mr" }).select("_id").lean();
+          query.mrId = { $in: regionMrs.map((u: any) => u._id.toString()) };
+        }
       }
     }
 
     const clientId = searchParams.get("clientId");
     const date = searchParams.get("date");
+    const from = searchParams.get("from");
+    const to = searchParams.get("to");
     const days = parseInt(searchParams.get("days") || "30");
     const limit = parseInt(searchParams.get("limit") || "100");
 
     if (clientId) query.clientId = clientId;
     if (date) query.date = date;
+    else if (from || to) query.date = { ...(from ? { $gte: from } : {}), ...(to ? { $lte: to } : {}) };
     else query.date = { $gte: daysAgo(days) };
 
     const visits = await Visit.find(query).sort({ date: -1 }).limit(limit).lean();
 
     const clientIds = Array.from(new Set(visits.map((v: any) => v.clientId)));
+    const mrIds = Array.from(new Set(visits.map((v: any) => v.mrId)));
     const clients = await import('@/lib/models').then(m => m.Client.find({ _id: { $in: clientIds } }).lean());
+    const mrs = await User.find({ _id: { $in: mrIds } }).select("name").lean();
     const clientMap = clients.reduce((acc: any, c: any) => {
       acc[c._id.toString()] = c.name;
+      return acc;
+    }, {});
+    const mrMap = mrs.reduce((acc: Record<string, string>, user: any) => {
+      acc[user._id.toString()] = user.name;
       return acc;
     }, {});
 
     const populatedVisits = visits.map((v: any) => ({
       ...v,
       clientName: clientMap[v.clientId] || 'Unknown Client',
+      mrName: mrMap[v.mrId] || 'Unknown MR',
     }));
 
     return ok(populatedVisits.map(serializeDoc));

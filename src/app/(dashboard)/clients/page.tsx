@@ -2,6 +2,7 @@
 import { useEffect, useState, useCallback } from "react";
 import { useAuth } from "@/context/AuthContext";
 import { api } from "@/lib/api-client";
+import { downloadCsv } from "@/lib/csv";
 
 export default function ClientsPage() {
   const { activeUser } = useAuth();
@@ -9,6 +10,7 @@ export default function ClientsPage() {
   const [visits, setVisits]   = useState<any[]>([]);
   const [search, setSearch]   = useState("");
   const [typeFilter, setType] = useState("");
+  const [selectedMonth, setSelectedMonth] = useState(() => new Date().toISOString().slice(0, 7));
   const [loading, setLoading] = useState(true);
   const [showAdd, setShowAdd] = useState(false);
   const [newClient, setNewClient] = useState({ name: "", type: "doctor", specialty: "", address: "", phone: "", regionId: "" });
@@ -21,7 +23,7 @@ export default function ClientsPage() {
     if (typeFilter) params.type = typeFilter;
     const [c, v] = await Promise.all([
       api.getClients(params),
-      api.getVisits({ days: "30" }),
+      api.getVisits({ days: "366" }),
     ]);
     setClients(c); setVisits(v);
     setLoading(false);
@@ -34,9 +36,41 @@ export default function ClientsPage() {
   }, []);
 
   const getVisitCount = (clientId: string) => visits.filter((v: any) => v.clientId === clientId).length;
+  const getMonthVisits = (clientId: string) => visits.filter((v: any) => v.clientId === clientId && v.date.startsWith(selectedMonth));
   const getLastVisit  = (clientId: string) => {
     const cv = visits.filter((v: any) => v.clientId === clientId).sort((a: any, b: any) => b.date.localeCompare(a.date));
     return cv[0] || null;
+  };
+
+  const exportCsv = () => {
+    if (!clients.length) return;
+    downloadCsv(`client-management-report-${selectedMonth}.csv`, [
+      "Client",
+      "Type",
+      "Region",
+      "Address",
+      "Phone",
+      "Specialty",
+      "Visit Month",
+      "Visits",
+      "Target Status",
+      "Last Visit",
+    ], clients.map((client: any) => {
+      const monthVisits = getMonthVisits(client.id);
+      const lastVisit = getLastVisit(client.id);
+      return [
+        client.name,
+        client.type,
+        client.region,
+        client.address,
+        client.phone,
+        client.specialty,
+        selectedMonth,
+        monthVisits.length,
+        monthVisits.length >= 2 ? "Completed" : "Pending",
+        lastVisit ? new Date(lastVisit.date).toLocaleDateString("en", { day:"numeric", month:"short" }) : "Never",
+      ];
+    }));
   };
 
   const counts = { doctor: 0, retailer: 0, stockist: 0 } as Record<string, number>;
@@ -49,9 +83,12 @@ export default function ClientsPage() {
           <h1 className="page-title">Clients</h1>
           <p style={{ fontSize:13, color:"var(--text-secondary)" }}>{clients.length} clients in your territory</p>
         </div>
-        {(activeUser?.role === "admin" || activeUser?.role === "head_admin") && (
-          <button className="btn btn-primary" onClick={() => setShowAdd(true)}>Add Client</button>
-        )}
+        <div style={{ display:"flex", gap:8 }}>
+          <button className="btn btn-secondary" onClick={exportCsv} disabled={!clients.length}>Download CSV</button>
+          {(activeUser?.role === "admin" || activeUser?.role === "head_admin") && (
+            <button className="btn btn-primary" onClick={() => setShowAdd(true)}>Add Client</button>
+          )}
+        </div>
       </div>
 
       <div className="grid-3" style={{ marginBottom:24 }}>
@@ -61,7 +98,7 @@ export default function ClientsPage() {
           { label:"Stockists", count: counts.stockist, color:"var(--accent-2)", type:"stockist" },
         ].map(t => (
           <div key={t.label} className="card" style={{ padding:"16px 20px", cursor:"pointer" }} onClick={() => setType(typeFilter === t.type ? "" : t.type)}>
-            <p style={{ fontSize:28, fontFamily:"Syne, sans-serif", fontWeight:700, color:t.color }}>{t.count}</p>
+            <p style={{ fontSize:28, fontWeight:700, color:t.color }}>{t.count}</p>
             <p style={{ fontSize:13, color:"var(--text-secondary)", marginTop:4 }}>{t.label}</p>
             {typeFilter === t.type && <div style={{ width:20, height:3, background:t.color, borderRadius:99, marginTop:8 }} />}
           </div>
@@ -79,6 +116,9 @@ export default function ClientsPage() {
           <option value="retailer">Retailers</option>
           <option value="stockist">Stockists</option>
         </select>
+        <label className="form-label" style={{ margin:0, display:"flex", alignItems:"center", gap:8 }}>Visit month
+          <input className="form-input" type="month" value={selectedMonth} onChange={e => setSelectedMonth(e.target.value)} style={{ width:"auto" }} />
+        </label>
       </div>
 
       {showAdd && (
@@ -133,12 +173,12 @@ export default function ClientsPage() {
         <div className="table-wrapper">
           <table>
             <thead><tr>
-              <th>Client</th><th>Type</th><th>Region</th><th>Address</th><th>Monthly Visits</th><th>Last Visit</th>
+              <th>Client</th><th>Type</th><th>Region</th><th>Address</th><th>Visit Month</th><th>Target Status</th><th>Last Visit</th>
               {(activeUser?.role === "admin" || activeUser?.role === "head_admin") && <th>Actions</th>}
             </tr></thead>
             <tbody>
               {clients.map((c: any) => {
-                const mv = getVisitCount(c.id);
+                const monthVisits = getMonthVisits(c.id);
                 const lv = getLastVisit(c.id);
                 return (
                   <tr key={c.id}>
@@ -151,9 +191,10 @@ export default function ClientsPage() {
                     <td style={{ fontSize:13, color:"var(--text-secondary)" }}>{c.region}</td>
                     <td style={{ fontSize:12.5, color:"var(--text-secondary)", maxWidth:160 }}>{c.address}</td>
                     <td>
-                      <span style={{ fontWeight:700, fontFamily:"Syne, sans-serif", color: mv >= 2 ? "var(--accent-success)" : mv === 1 ? "var(--accent-3)" : "var(--accent-danger)" }}>{mv}</span>
+                      <span style={{ fontWeight:700 }}>{monthVisits.length}</span>
                       <span style={{ fontSize:11, color:"var(--text-muted)", marginLeft:4 }}>/ 2 req</span>
                     </td>
+                    <td><span className={`badge ${monthVisits.length >= 2 ? "badge-active" : "badge-inactive"}`}>{monthVisits.length >= 2 ? "Completed" : "Pending"}</span></td>
                     <td style={{ fontSize:13, color:"var(--text-secondary)" }}>
                       {lv ? new Date(lv.date).toLocaleDateString("en", { day:"numeric", month:"short" }) : <span style={{ color:"var(--accent-danger)" }}>Never</span>}
                     </td>

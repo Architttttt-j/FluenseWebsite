@@ -1,7 +1,7 @@
 import { NextRequest } from "next/server";
 import { connectDB } from "@/lib/db/mongoose";
 import { Visit, User, Client, Region } from "@/lib/models";
-import { ok, err, getAuthUserDoc, daysAgo } from "@/lib/utils";
+import { ok, err, getAuthUserDoc, periodRange } from "@/lib/utils";
 
 export async function GET(req: NextRequest) {
   try {
@@ -11,8 +11,7 @@ export async function GET(req: NextRequest) {
 
     const { searchParams } = new URL(req.url);
     const period = searchParams.get("period") || "month";
-    const days = period === "week" ? 7 : period === "year" ? 365 : 30;
-    const cutoff = daysAgo(days);
+    const range = periodRange(period);
 
     let mrIds: string[] = [];
     if (me.role === "mr") {
@@ -28,7 +27,7 @@ export async function GET(req: NextRequest) {
       mrIds = mrs.map((u: any) => u._id.toString());
     }
 
-    const visits = await Visit.find({ mrId: { $in: mrIds }, date: { $gte: cutoff } });
+    const visits = await Visit.find({ mrId: { $in: mrIds }, date: { $gte: range.start, $lte: range.end } });
     const clients = await Client.find({});
     const clientMap: Record<string, string> = {};
     for (const c of clients) clientMap[(c as any)._id.toString()] = (c as any).type;

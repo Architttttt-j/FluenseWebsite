@@ -21,6 +21,66 @@ export default function AttendancePage() {
 
   const isMR = activeUser?.role === "mr";
 
+  const resolveDisplayName = (log: any) => {
+    const mr = users.find((u: any) => u.id === log.mrId || u.id === log.userId);
+    if (mr?.name) return mr.name;
+    if (log.mrName) return log.mrName;
+    return "Unknown MR";
+  };
+
+  const exportCsv = () => {
+    if (!logs.length) return;
+
+    const headers = [
+      "MR Name",
+      "MR ID",
+      "Date",
+      "Check In",
+      "Check Out",
+      "Duration",
+      "Location",
+      "Visited Clients",
+      "Products Pitched",
+      "Status",
+    ];
+
+    const csvRows = logs.map((log: any) => {
+      const mr = users.find((u: any) => u.id === log.mrId || u.id === log.userId);
+      const status = !log.checkIn ? "absent" : !log.checkOut ? "checked-in" : "completed";
+      const duration = dur(log.checkIn, log.checkOut);
+      const location = log.checkInLocation ? `${log.checkInLocation.lat?.toFixed(4)}, ${log.checkInLocation.lng?.toFixed(4)}` : "—";
+      const visitedClients = (log.visitedClients || []).map((client: any) => `${client.name} (${client.type})`).join("; ");
+      const productsPitched = Array.from(new Set((log.visitedClients || []).flatMap((client: any) => client.products || []))).join("; ");
+
+      return [
+        resolveDisplayName(log),
+        log.mrId,
+        log.date,
+        log.checkIn || "",
+        log.checkOut || "",
+        duration === "—" ? "" : duration,
+        location,
+        visitedClients,
+        productsPitched,
+        status,
+      ]
+        .map((value) => `"${String(value).replace(/"/g, '""')}"`)
+        .join(",");
+    });
+
+    const csv = [headers.join(","), ...csvRows].join("\n");
+    const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = `attendance-report-${selectedDate || "all-dates"}.csv`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+  };
+
   const load = useCallback(async () => {
     setLoading(true);
     const params: any = {};
@@ -35,10 +95,11 @@ export default function AttendancePage() {
 
   useEffect(() => {
     if (!isMR) {
-      api.getUsers({ role: "mr" }).then((d: any) => setUsers(d.users || []));
+      const fetchUsers = activeUser?.role === "head_admin" ? api.getUsers() : api.getUsers({ role: "mr" });
+      fetchUsers.then((d: any) => setUsers(d.users || []) );
       api.getTodaySummary().then(setSummary).catch(() => {});
     }
-  }, [isMR]);
+  }, [isMR, activeUser?.role]);
 
   return (
     <div className="page-content fade-in">
@@ -60,7 +121,7 @@ export default function AttendancePage() {
             { label:"Rate",          value: summary.totalMrs > 0 ? `${Math.round((summary.present/summary.totalMrs)*100)}%` : "0%", color:"var(--accent-3)" },
           ].map(s => (
             <div key={s.label} className="card" style={{ padding:"16px 20px" }}>
-              <p style={{ fontSize:28, fontFamily:"Syne, sans-serif", fontWeight:700, color:s.color }}>{s.value}</p>
+              <p style={{ fontSize:28, fontWeight:700, color:s.color }}>{s.value}</p>
               <p style={{ fontSize:12.5, color:"var(--text-secondary)", marginTop:4 }}>{s.label}</p>
             </div>
           ))}
@@ -68,7 +129,7 @@ export default function AttendancePage() {
       )}
 
       {/* Filters */}
-      <div style={{ display:"flex", gap:12, marginBottom:20, flexWrap:"wrap" }}>
+      <div style={{ display:"flex", gap:12, marginBottom:20, flexWrap:"wrap", alignItems:"flex-end" }}>
         <div>
           <label className="form-label">Date</label>
           <input className="form-input" type="date" value={selectedDate} onChange={e => setDate(e.target.value)} style={{ width:"auto" }} />
@@ -82,8 +143,13 @@ export default function AttendancePage() {
             </select>
           </div>
         )}
-        <div style={{ alignSelf:"flex-end" }}>
+        <div>
           <button className="btn btn-secondary btn-sm" onClick={() => { setDate(""); setMR(""); }}>Clear</button>
+        </div>
+        <div>
+          <button className="btn btn-primary btn-sm" onClick={exportCsv} disabled={!logs.length}>
+            Download CSV
+          </button>
         </div>
       </div>
 
@@ -92,12 +158,12 @@ export default function AttendancePage() {
           <table>
             <thead><tr>
               {!isMR && <th>MR</th>}
-              <th>Date</th><th>Check In</th><th>Check Out</th><th>Duration</th><th>Location</th><th>Status</th>
+              <th>Date</th><th>Check In</th><th>Check Out</th><th>Duration</th><th>Location</th><th>Visited Clients</th><th>Products Pitched</th><th>Status</th>
               {!isMR && <th>Actions</th>}
             </tr></thead>
             <tbody>
               {logs.map((log: any) => {
-                const mr = users.find((u: any) => u.id === log.mrId);
+                const displayName = resolveDisplayName(log);
                 const status = !log.checkIn ? "absent" : !log.checkOut ? "checked-in" : "completed";
                 return (
                   <tr key={log.id}>
@@ -105,9 +171,9 @@ export default function AttendancePage() {
                       <td>
                         <div style={{ display:"flex", alignItems:"center", gap:8 }}>
                           <div className="avatar" style={{ width:28, height:28, fontSize:10 }}>
-                            {(mr?.name || "?").split(" ").map((n: string) => n[0]).join("").slice(0,2)}
+                            {displayName.split(" ").map((n: string) => n[0]).join("").slice(0,2) || "?"}
                           </div>
-                          <span style={{ fontSize:13.5, fontWeight:500 }}>{mr?.name || log.mrId}</span>
+                          <span style={{ fontSize:13.5, fontWeight:500 }}>{displayName}</span>
                         </div>
                       </td>
                     )}
@@ -119,6 +185,12 @@ export default function AttendancePage() {
                     <td style={{ fontSize:13, fontWeight:500 }}>{dur(log.checkIn, log.checkOut)}</td>
                     <td style={{ fontSize:12, color:"var(--text-muted)" }}>
                       {log.checkInLocation ? `${log.checkInLocation.lat?.toFixed(4)}, ${log.checkInLocation.lng?.toFixed(4)}` : "—"}
+                    </td>
+                    <td style={{ fontSize:12, color:"var(--text-secondary)", minWidth:180 }}>
+                      {log.visitedClients?.length ? log.visitedClients.map((client: any) => `${client.name} (${client.type})`).join(", ") : "No visits"}
+                    </td>
+                    <td style={{ fontSize:12, color:"var(--text-secondary)", minWidth:160 }}>
+                      {Array.from(new Set((log.visitedClients || []).flatMap((client: any) => client.products || []))).join(", ") || "No products recorded"}
                     </td>
                     <td>
                       <span className="badge" style={{

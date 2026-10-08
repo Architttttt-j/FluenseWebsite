@@ -21,6 +21,7 @@ const ClientSchema = new mongoose.Schema({ name: String, type: String, region: S
 const AttendanceSchema = new mongoose.Schema({ mrId: String, date: String, checkIn: String, checkOut: String, checkInLocation: GeoPoint, checkOutLocation: GeoPoint, status: String }, { timestamps: true });
 const VisitSchema = new mongoose.Schema({ mrId: String, clientId: String, date: String, checkIn: String, checkOut: String, products: [String], notes: String }, { timestamps: true });
 const GoalSchema = new mongoose.Schema({ mrId: String, date: String, target: Number, achieved: Number, description: String }, { timestamps: true });
+const ProductSchema = new mongoose.Schema({ code: { type: String, unique: true }, name: String, description: String, brochureUrl: String }, { timestamps: true });
 
 const Region   = mongoose.model("Region",     RegionSchema);
 const User     = mongoose.model("User",       UserSchema);
@@ -28,6 +29,7 @@ const Client   = mongoose.model("Client",     ClientSchema);
 const Attendance = mongoose.model("Attendance", AttendanceSchema);
 const Visit    = mongoose.model("Visit",      VisitSchema);
 const Goal     = mongoose.model("Goal",       GoalSchema);
+const Product  = mongoose.model("Product",   ProductSchema);
 
 // ── Seed Data ────────────────────────────────────────────────────────────────
 const REGIONS = [
@@ -76,7 +78,17 @@ const CLIENTS = [
   { name: "Hinjewadi Pharma",   type: "stockist", regionKey: "Hinjewadi", address: "IT Park Rd, Hinjewadi",                                     lat: 18.5875, lng: 73.7342, phone: "+91 98765 40003" },
 ];
 
-const PRODUCTS = ["p001","p002","p003","p004","p005","p006","p007","p008"];
+const PRODUCT_DATA = [
+  { code: "p001", name: "Fluensol 500mg", description: "Fluense pain relief tablet.", brochureUrl: "" },
+  { code: "p002", name: "Caldent Plus", description: "Calcium and vitamin D supplement.", brochureUrl: "" },
+  { code: "p003", name: "NeuPlex D3", description: "Vitamin D3 support supplement.", brochureUrl: "" },
+  { code: "p004", name: "Gastrovex Syrup", description: "Digestive health syrup.", brochureUrl: "" },
+  { code: "p005", name: "CardiShield 10", description: "Cardiovascular care product.", brochureUrl: "" },
+  { code: "p006", name: "DiabaCare XR", description: "Extended-release diabetes care product.", brochureUrl: "" },
+  { code: "p007", name: "RespiClear", description: "Respiratory care product.", brochureUrl: "" },
+  { code: "p008", name: "PainEase 650", description: "Pain management tablet.", brochureUrl: "" },
+];
+const PRODUCTS = PRODUCT_DATA.map(product => product.code);
 
 function dateStr(daysAgo) {
   const d = new Date();
@@ -133,6 +145,9 @@ async function seed() {
     clientsByRegion[c.regionKey].push(doc._id.toString());
   }
   console.log(`✓ ${CLIENTS.length} clients`);
+
+  await Product.insertMany(PRODUCT_DATA);
+  console.log(`✓ ${PRODUCT_DATA.length} products`);
 
   // MRs grouped by region
   const mrsByRegion = {};

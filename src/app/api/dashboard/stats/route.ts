@@ -1,7 +1,7 @@
 import { NextRequest } from "next/server";
 import { connectDB } from "@/lib/db/mongoose";
 import { Visit, Attendance, User } from "@/lib/models";
-import { ok, err, getAuthUserDoc, today, daysAgo } from "@/lib/utils";
+import { ok, err, getAuthUserDoc, today, daysAgo, periodRange } from "@/lib/utils";
 
 export async function GET(req: NextRequest) {
   try {
@@ -11,6 +11,7 @@ export async function GET(req: NextRequest) {
 
     const { searchParams } = new URL(req.url);
     const targetMrId = searchParams.get("mrId");
+    const reportRange = periodRange(searchParams.get("period") || "month");
 
     let mrIds: string[] = [];
     if (targetMrId) {
@@ -36,11 +37,12 @@ export async function GET(req: NextRequest) {
     const weekCutoff = daysAgo(7);
     const monthCutoff = daysAgo(30);
 
-    const [presentToday, visitsToday, visitsWeek, visitsMonth] = await Promise.all([
+    const [presentToday, visitsToday, visitsWeek, visitsMonth, visitsInPeriod] = await Promise.all([
       Attendance.countDocuments({ mrId: { $in: mrIds }, date: todayStr }),
       Visit.countDocuments({ mrId: { $in: mrIds }, date: todayStr }),
       Visit.countDocuments({ mrId: { $in: mrIds }, date: { $gte: weekCutoff } }),
       Visit.countDocuments({ mrId: { $in: mrIds }, date: { $gte: monthCutoff } }),
+      Visit.countDocuments({ mrId: { $in: mrIds }, date: { $gte: reportRange.start, $lte: reportRange.end } }),
     ]);
 
     return ok({
@@ -49,7 +51,8 @@ export async function GET(req: NextRequest) {
       visitsToday,
       visitsThisWeek: visitsWeek,
       visitsThisMonth: visitsMonth,
-      avgVisitsPerMr: mrIds.length > 0 ? +(visitsMonth / mrIds.length).toFixed(1) : 0,
+      visitsInPeriod,
+      avgVisitsPerMr: mrIds.length > 0 ? +(visitsInPeriod / mrIds.length).toFixed(1) : 0,
     });
   } catch (e: any) {
     return err(e.message, 500);

@@ -6,7 +6,7 @@ import { useAuth } from "@/context/AuthContext";
 import { LineChart, Line, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell } from "recharts";
 
 const PRODUCTS: Record<string, string> = { p001:"Fluensol 500mg", p002:"Caldent Plus", p003:"NeuPlex D3", p004:"Gastrovex Syrup", p005:"CardiShield 10", p006:"DiabaCare XR", p007:"RespiClear", p008:"PainEase 650" };
-const COLORS = ["#3b6ef8","#00c9a7","#f59e0b","#ef4444","#a78bfa","#fb923c"];
+const localDate = () => new Date().toLocaleDateString("en-CA");
 const Tip = ({ active, payload, label }: any) => active && payload?.length ? (
   <div style={{ background:"var(--bg-card)", border:"1px solid var(--border-light)", borderRadius:8, padding:"10px 14px", fontSize:12.5 }}>
     <p style={{ color:"var(--text-secondary)", marginBottom:4 }}>{label}</p>
@@ -22,6 +22,7 @@ export default function MRDetailPage() {
   const [visits, setVisits] = useState<any[]>([]);
   const [trend, setTrend]   = useState<any[]>([]);
   const [att, setAtt]       = useState<any[]>([]);
+  const [goal, setGoal]     = useState<any>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -30,8 +31,9 @@ export default function MRDetailPage() {
       api.getVisits({ mrId: id, days: "30", limit: "10" }),
       api.getVisitTrend({ days: "30", mrId: id } as any),
       api.getAttendance({ mrId: id, days: "30" }),
-    ]).then(([u, v, t, a]) => {
-      setUser(u); setVisits(v); setTrend(t); setAtt(a);
+      api.getGoals({ mrId: id, date: localDate() }),
+    ]).then(([u, v, t, a, goals]) => {
+      setUser(u); setVisits(v); setTrend(t); setAtt(a); setGoal(goals?.[0] || null);
     }).finally(() => setLoading(false));
   }, [id]);
 
@@ -92,13 +94,21 @@ export default function MRDetailPage() {
           { label:"Total Visits (30d)", value: visits.length,  color:"var(--accent)" },
           { label:"Attendance (30d)",   value: att.length,     color:"var(--accent-2)" },
           { label:"Products Covered",   value: new Set(visits.flatMap((v: any) => v.products)).size, color:"var(--accent-3)" },
-          { label:"Unique Clients",     value: new Set(visits.map((v: any) => v.clientId)).size,     color:"#a78bfa" },
+          { label:"Unique Clients",     value: new Set(visits.map((v: any) => v.clientId)).size,     color:"var(--accent-3)" },
         ].map(s => (
           <div key={s.label} className="card" style={{ padding:"16px 20px" }}>
-            <p style={{ fontSize:28, fontFamily:"Syne, sans-serif", fontWeight:700, color:s.color }}>{s.value}</p>
+            <p style={{ fontSize:28, fontWeight:700, color:s.color }}>{s.value}</p>
             <p style={{ fontSize:12.5, color:"var(--text-secondary)", marginTop:4 }}>{s.label}</p>
           </div>
         ))}
+      </div>
+
+      <div className="card" style={{ marginBottom:20, borderLeft:"3px solid var(--accent-2)" }}>
+        <div className="flex-between">
+          <div><h3 style={{ fontSize:15, fontWeight:700, marginBottom:4 }}>Today&apos;s Assigned Target</h3><p style={{ fontSize:12, color:"var(--text-secondary)" }}>Daily call target</p></div>
+          <strong style={{ fontSize:24, color:goal ? "var(--accent-2)" : "var(--text-muted)" }}>{goal ? `${goal.achieved || 0} / ${goal.target}` : "Not assigned"}</strong>
+        </div>
+        {goal && <div className="progress-bar" style={{ height:8, marginTop:14 }}><div className="progress-fill" style={{ width:`${goal.target > 0 ? Math.min(100, Math.round(((goal.achieved || 0) / goal.target) * 100)) : 0}%`, background:"var(--accent-2)" }} /></div>}
       </div>
 
       <div className="grid-2" style={{ marginBottom:20 }}>
@@ -107,7 +117,7 @@ export default function MRDetailPage() {
           <p style={{ fontSize:12, color:"var(--text-secondary)", marginBottom:16 }}>Last 30 days</p>
           <ResponsiveContainer width="100%" height={180}>
             <LineChart data={trend.filter((_,i) => i % 2 === 0).map(d => ({ ...d, day: d.date.slice(5) }))}>
-              <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.04)" />
+              <CartesianGrid strokeDasharray="3 3" stroke="var(--border-light)" />
               <XAxis dataKey="day" tick={{ fill:"var(--text-muted)", fontSize:10 }} tickLine={false} axisLine={false} />
               <YAxis tick={{ fill:"var(--text-muted)", fontSize:10 }} tickLine={false} axisLine={false} />
               <Tooltip content={<Tip />} />
@@ -120,7 +130,7 @@ export default function MRDetailPage() {
           <p style={{ fontSize:12, color:"var(--text-secondary)", marginBottom:16 }}>Aggregated by month</p>
           <ResponsiveContainer width="100%" height={180}>
             <BarChart data={monthly}>
-              <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.04)" vertical={false} />
+              <CartesianGrid strokeDasharray="3 3" stroke="var(--border-light)" vertical={false} />
               <XAxis dataKey="month" tick={{ fill:"var(--text-muted)", fontSize:10 }} tickLine={false} axisLine={false} />
               <YAxis tick={{ fill:"var(--text-muted)", fontSize:10 }} tickLine={false} axisLine={false} />
               <Tooltip content={<Tip />} />

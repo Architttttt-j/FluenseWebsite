@@ -53,8 +53,6 @@ export default function ProfilePage() {
   if (!user) return <div className="page-content" style={{ display:"flex", alignItems:"center", justifyContent:"center", height:"80vh" }}><div className="spinner" style={{ width:32, height:32 }} /></div>;
 
   const roleLabel: Record<string, string> = { head_admin:"Head Admin", admin:"Regional Admin", mr:"Medical Representative" };
-  const roleColor: Record<string, string> = { head_admin:"var(--accent-3)", admin:"var(--accent)", mr:"var(--accent-2)" };
-
   return (
     <div className="page-content fade-in">
       {params?.id && params.id !== activeUser?.id && (
@@ -68,7 +66,7 @@ export default function ProfilePage() {
               {user.avatarUrl ? (
                 <img src={user.avatarUrl} alt="Avatar" className="avatar avatar-lg" style={{ objectFit: "cover" }} />
               ) : (
-                <div className="avatar avatar-lg" style={{ background:`linear-gradient(135deg, ${roleColor[user.role]}, var(--accent))` }}>
+                <div className="avatar avatar-lg" style={{ background:"var(--accent)" }}>
                   {user.name.split(" ").map((n: string) => n[0]).join("").slice(0,2)}
                 </div>
               )}
@@ -148,7 +146,7 @@ export default function ProfilePage() {
                 { label:"Present Today",   value: stats.presentToday,    color:"var(--accent-3)" },
               ].map(s => (
                 <div key={s.label} style={{ flex:1, background:"var(--bg-input)", borderRadius:10, padding:"14px 16px" }}>
-                  <p style={{ fontSize:26, fontFamily:"Syne, sans-serif", fontWeight:700, color:s.color }}>{s.value}</p>
+                  <p style={{ fontSize:26, fontWeight:700, color:s.color }}>{s.value}</p>
                   <p style={{ fontSize:12, color:"var(--text-secondary)", marginTop:4 }}>{s.label}</p>
                 </div>
               ))}

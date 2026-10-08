@@ -1,7 +1,7 @@
 import { NextRequest } from "next/server";
 import { connectDB } from "@/lib/db/mongoose";
 import { Visit, User } from "@/lib/models";
-import { ok, err, getAuthUserDoc, daysAgo } from "@/lib/utils";
+import { ok, err, getAuthUserDoc, periodRange } from "@/lib/utils";
 
 export async function GET(req: NextRequest) {
   try {
@@ -12,8 +12,7 @@ export async function GET(req: NextRequest) {
 
     const { searchParams } = new URL(req.url);
     const period = searchParams.get("period") || "month";
-    const days = period === "week" ? 7 : period === "year" ? 365 : 30;
-    const cutoff = daysAgo(days);
+    const range = periodRange(period);
 
     const query: any = { role: "mr" };
     if (me.role === "admin") query.regionId = me.regionId;
@@ -25,7 +24,7 @@ export async function GET(req: NextRequest) {
       mrs.map(async (mr: any) => {
         const visits = await Visit.countDocuments({
           mrId: mr._id.toString(),
-          date: { $gte: cutoff },
+          date: { $gte: range.start, $lte: range.end },
         });
         return {
           id: mr._id.toString(),

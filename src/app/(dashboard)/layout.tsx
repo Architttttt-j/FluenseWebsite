@@ -21,26 +21,27 @@ function Guard({ children }: { children: React.ReactNode }) {
   if (!activeUser) return null;
 
   return (
-    <div style={{ display: "flex", height: "100vh", overflow: "hidden" }}>
+    <div className="app-shell" style={{ display: "flex", height: "100dvh", overflow: "hidden" }}>
       <Sidebar />
-      <div style={{ flex: 1, display: "flex", flexDirection: "column", overflow: "hidden" }}>
-        <header style={{ height: "var(--header-height)", background: "var(--bg-secondary)", borderBottom: "1px solid var(--border)", display: "flex", alignItems: "center", justifyContent: "space-between", padding: "0 28px", flexShrink: 0 }}>
+      <div className="app-content" style={{ flex: 1, display: "flex", flexDirection: "column", overflow: "hidden" }}>
+        <header className="app-header" style={{ height: "var(--header-height)", background: "var(--bg-secondary)", borderBottom: "1px solid var(--border)", display: "flex", alignItems: "center", justifyContent: "space-between", padding: "0 28px", flexShrink: 0 }}>
           <h2 style={{ fontSize: 15, fontWeight: 600, color: "var(--text-primary)" }}>
             {pathname.includes("/mr/") ? "MR Detail" :
              pathname === "/mr" ? "MR Management" :
              pathname === "/attendance" ? "Attendance" :
              pathname === "/clients" ? "Clients" :
              pathname === "/reports" ? "Reports" :
+             pathname === "/products" ? "Products" :
              pathname.startsWith("/profile") ? "Profile" : "Dashboard"}
           </h2>
           <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-            <span style={{ fontSize: 12.5, color: "var(--text-secondary)" }}>{activeUser.region}</span>
+            <span className="header-region">{activeUser.region}</span>
             <div className="avatar" style={{ width: 32, height: 32, fontSize: 11 }}>
               {activeUser.name.split(" ").map((n: string) => n[0]).join("").slice(0, 2)}
             </div>
           </div>
         </header>
-        <main style={{ flex: 1, overflow: "hidden" }}>{children}</main>
+        <main className="app-main" style={{ flex: 1, overflow: "hidden" }}>{children}</main>
       </div>
     </div>
   );

@@ -10,8 +10,10 @@ export async function GET(req: NextRequest) {
     if (!me) return err("Unauthorized", 401);
     if (me.role === "mr") return err("Forbidden", 403);
 
+    const { searchParams } = new URL(req.url);
     const query: Record<string, any> = { role: "mr", status: "active" };
     if (me.role === "admin") query.regionId = me.regionId;
+    if (me.role === "head_admin" && searchParams.get("regionId")) query.regionId = searchParams.get("regionId");
 
     const mrs = await User.find(query);
     const mrIds = mrs.map((u: any) => u._id.toString());

@@ -10,6 +10,7 @@ const NAV = [
   { path: "/attendance",  label: "Attendance",     roles: ["head_admin","admin","mr"],  icon: "clock" },
   { path: "/clients",     label: "Clients",        roles: ["head_admin","admin","mr"],  icon: "map-pin" },
   { path: "/reports",     label: "Reports",        roles: ["head_admin","admin"],        icon: "bar-chart" },
+  { path: "/products",    label: "Products",       roles: ["head_admin"],                icon: "package" },
   { path: "/profile",     label: "Profile",        roles: ["head_admin","admin","mr"],  icon: "user" },
 ];
 
@@ -20,6 +21,7 @@ function Icon({ name }: { name: string }) {
     clock:     <><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></>,
     "map-pin": <><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></>,
     "bar-chart":<><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></>,
+    package:   <><path d="m16.5 9.4-9-5.19"/><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/><polyline points="3.27 6.96 12 12.01 20.73 6.96"/><line x1="12" y1="22.08" x2="12" y2="12"/></>,
     user:      <><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></>,
     logout:    <><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></>,
     chevron:   <polyline points="9 18 15 12 9 6"/>,
@@ -44,26 +46,23 @@ export default function Sidebar() {
   const roleLabel: Record<string, string> = { head_admin: "Head Admin", admin: "Regional Admin", mr: "MR" };
 
   return (
-    <aside style={{
+    <aside className="app-sidebar" style={{
       width: collapsed ? 72 : "var(--sidebar-width)", flexShrink: 0,
       background: "var(--bg-secondary)", borderRight: "1px solid var(--border)",
       display: "flex", flexDirection: "column", transition: "width 0.25s ease", overflow: "hidden",
     }}>
       {/* Logo */}
-      <div style={{ height: "var(--header-height)", display: "flex", alignItems: "center", padding: collapsed ? "0 18px" : "0 20px", gap: 12, borderBottom: "1px solid var(--border)", flexShrink: 0 }}>
-        <div style={{ width: 36, height: 36, borderRadius: 9, background: "linear-gradient(135deg, var(--accent), #6b9fff)", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, boxShadow: "0 4px 12px rgba(59,110,248,0.4)" }}>
-          <svg width="20" height="20" fill="none" viewBox="0 0 24 24"><path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5" stroke="#fff" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"/></svg>
-        </div>
-        {!collapsed && <span style={{ fontFamily: "Syne, sans-serif", fontWeight: 800, fontSize: 18 }}>Fluense</span>}
+      <div className="sidebar-brand" style={{ height: "var(--header-height)", display: "flex", alignItems: "center", padding: collapsed ? "0 18px" : "0 20px", gap: 12, borderBottom: "1px solid var(--border)", flexShrink: 0 }}>
+        <img src="/fluense-logo.svg" alt="Fluense Healthcare Pvt. Ltd." style={{ width: collapsed ? 36 : 190, height: collapsed ? 36 : "auto", objectFit: collapsed ? "cover" : "contain", objectPosition: "left center", flexShrink: 0 }} />
       </div>
 
       {/* Nav */}
-      <nav style={{ flex: 1, padding: "12px 10px", overflowY: "auto" }}>
+      <nav className="sidebar-nav" style={{ flex: 1, padding: "12px 10px", overflowY: "auto" }}>
         {visible.map(item => {
           const active = pathname === item.path || (item.path !== "/" && pathname.startsWith(item.path));
           return (
-            <Link key={item.path} href={item.path} style={{ textDecoration: "none" }}>
-              <div style={{
+            <Link key={item.path} href={item.path} style={{ textDecoration: "none" }} aria-current={active ? "page" : undefined}>
+              <div className="sidebar-link" style={{
                 display: "flex", alignItems: "center", gap: 12,
                 padding: "10px 14px", borderRadius: 9, marginBottom: 3, cursor: "pointer", transition: "all 0.15s",
                 background: active ? "var(--accent-glow)" : "transparent",
@@ -81,9 +80,9 @@ export default function Sidebar() {
       </nav>
 
       {/* User */}
-      <div style={{ padding: "12px 10px", borderTop: "1px solid var(--border)", flexShrink: 0 }}>
+      <div className="sidebar-user-panel" style={{ padding: "12px 10px", borderTop: "1px solid var(--border)", flexShrink: 0 }}>
         {!collapsed && activeUser && (
-          <div style={{ display: "flex", alignItems: "center", gap: 10, padding: "10px 12px", background: "var(--bg-card)", borderRadius: 9, marginBottom: 8 }}>
+          <div className="sidebar-user-card" style={{ display: "flex", alignItems: "center", gap: 10, padding: "10px 12px", background: "var(--bg-card)", borderRadius: 9, marginBottom: 8 }}>
             <div className="avatar" style={{ width: 32, height: 32, fontSize: 11 }}>
               {activeUser.name.split(" ").map(n => n[0]).join("").slice(0, 2)}
             </div>
@@ -93,13 +92,11 @@ export default function Sidebar() {
             </div>
           </div>
         )}
-        <div style={{ display: "flex", gap: 6 }}>
-          {!collapsed && (
-            <button className="btn btn-secondary btn-sm" onClick={logout} style={{ flex: 1, justifyContent: "center" }}>
-              <Icon name="logout" /> Logout
-            </button>
-          )}
-          <button className="btn btn-secondary btn-sm" onClick={() => setCollapsed(!collapsed)} style={{ padding: "6px 10px" }}>
+        <div className="sidebar-controls" style={{ display: "flex", gap: 6 }}>
+          <button className="btn btn-secondary btn-sm" onClick={logout} style={{ flex: 1, justifyContent: "center" }} aria-label="Log out" title="Log out">
+            <Icon name="logout" /> {!collapsed && "Logout"}
+          </button>
+          <button className="btn btn-secondary btn-sm" onClick={() => setCollapsed(!collapsed)} style={{ padding: "6px 10px" }} aria-label={collapsed ? "Expand sidebar" : "Collapse sidebar"} aria-expanded={!collapsed}>
             <Icon name="chevron" />
           </button>
         </div>

@@ -6,7 +6,7 @@ One unified Next.js 14 project with API Routes (backend) + React pages (frontend
 - **Framework**: Next.js 14 (App Router)
 - **Database**: MongoDB + Mongoose
 - **Auth**: JWT via `jose` + bcryptjs
-- **UI**: Recharts, custom dark theme (DM Sans + Syne fonts)
+- **UI**: Recharts, shared light teal theme with system typography
 
 ## Project Structure
 ```
@@ -96,6 +96,8 @@ To reset: `docker compose down -v && docker compose up --build`
 
 ## 📡 API Reference
 
+`GET /api/products` and `GET /api/regions` are public read-only endpoints; management operations still require authorization.
+
 All routes require `Authorization: Bearer <token>` except `/api/auth/login`.
 
 | Method | Path | Description |
@@ -109,6 +111,10 @@ All routes require `Authorization: Bearer <token>` except `/api/auth/login`.
 | PATCH | `/api/users/:id/toggle-status` | Activate / deactivate |
 | POST | `/api/users/:id/avatar` | Upload profile picture |
 | GET | `/api/regions` | List all regions |
+| GET | `/api/products` | Public product catalogue |
+| POST | `/api/products` | Create product (head admin) |
+| PATCH/DELETE | `/api/products/:id` | Update / delete product (head admin) |
+| POST | `/api/products/:id/image` | Upload medicine image (JPG, PNG or WebP; head admin) |
 | GET | `/api/attendance` | Get attendance logs |
 | POST | `/api/attendance/check-in` | MR check in |
 | POST | `/api/attendance/check-out` | MR check out |

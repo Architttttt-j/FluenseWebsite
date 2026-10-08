@@ -84,3 +84,14 @@ const GoalSchema = new Schema({
 }, { timestamps: true });
 
 export const Goal = models.Goal || model("Goal", GoalSchema);
+
+// ─── Product ────────────────────────────────────────────────────────────────
+const ProductSchema = new Schema({
+  code:        { type: String, required: true, unique: true, trim: true },
+  name:        { type: String, required: true, trim: true },
+  description: { type: String, default: "" },
+  imageUrl:    { type: String, default: "" },
+  brochureUrl: { type: String, default: "" },
+}, { timestamps: true });
+
+export const Product = models.Product || model("Product", ProductSchema);

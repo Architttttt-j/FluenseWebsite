@@ -1,2 +1,5 @@
-import { redirect } from "next/navigation";
-export default function Root() { redirect("/dashboard"); }
+import FluenseCorporateWebsite from "@/components/website/FluenseCorporateWebsite";
+
+export default function HomePage() {
+  return <FluenseCorporateWebsite />;
+}
