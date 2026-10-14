@@ -16,26 +16,40 @@ export async function GET(req: NextRequest) {
     if (me.role === "mr") {
       mrIds = [me._id.toString()];
     } else if (me.role === "admin") {
-      const mrs = await User.find({ regionId: me.regionId, role: "mr" });
+      const mrs = await User.find({ regionId: me.regionId, role: "mr" }).select("_id").lean();
       mrIds = mrs.map((u: any) => u._id.toString());
     } else {
       const regionId = searchParams.get("regionId");
       const mrId = searchParams.get("mrId");
       if (mrId) mrIds = [mrId];
       else if (regionId) {
-        const mrs = await User.find({ regionId, role: "mr" });
+        const mrs = await User.find({ regionId, role: "mr" }).select("_id").lean();
         mrIds = mrs.map((u: any) => u._id.toString());
       } else {
-        const mrs = await User.find({ role: "mr" });
+        const mrs = await User.find({ role: "mr" }).select("_id").lean();
         mrIds = mrs.map((u: any) => u._id.toString());
       }
     }
 
-    const cutoff = daysAgo(days);
-    const visits = await Visit.find({ mrId: { $in: mrIds }, date: { $gte: cutoff } });
-
     const counts: Record<string, number> = {};
-    for (const v of visits) counts[v.date] = (counts[v.date] || 0) + 1;
+    if (mrIds.length > 0) {
+      const cutoff = daysAgo(days);
+      const visitAgg = await Visit.aggregate([
+        {
+          $match: {
+            mrId: { $in: mrIds },
+            date: { $gte: cutoff },
+          },
+        },
+        {
+          $group: {
+            _id: "$date",
+            count: { $sum: 1 },
+          },
+        },
+      ]);
+      for (const v of visitAgg) counts[v._id] = v.count;
+    }
 
     // Build full date range with zeros
     const result = [];

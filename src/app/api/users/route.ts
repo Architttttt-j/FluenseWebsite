@@ -2,7 +2,7 @@ import { NextRequest } from "next/server";
 import { connectDB } from "@/lib/db/mongoose";
 import { User } from "@/lib/models";
 import { hashPassword } from "@/lib/auth";
-import { ok, err, serializeUser, getAuthUserDoc } from "@/lib/utils";
+import { ok, err, serializeUser, getAuthUserDoc, parsePagination } from "@/lib/utils";
 
 export async function GET(req: NextRequest) {
   try {
@@ -25,17 +25,28 @@ export async function GET(req: NextRequest) {
       if (status) query.status = status;
     }
 
-    let users = await User.find(query).sort({ createdAt: -1 });
-
     const search = searchParams.get("search");
     if (search) {
-      const s = search.toLowerCase();
-      users = users.filter(u =>
-        u.name.toLowerCase().includes(s) || u.email.toLowerCase().includes(s)
-      );
+      query.$or = [
+        { name: { $regex: search, $options: "i" } },
+        { email: { $regex: search, $options: "i" } },
+      ];
     }
 
-    return ok({ users: users.map(serializeUser), total: users.length });
+    const { page, limit, skip, hasPagination } = parsePagination(searchParams, 50, 200);
+
+    const [total, users] = await Promise.all([
+      User.countDocuments(query),
+      hasPagination
+        ? User.find(query).select("-passwordHash").sort({ createdAt: -1 }).skip(skip).limit(limit).lean()
+        : User.find(query).select("-passwordHash").sort({ createdAt: -1 }).limit(limit).lean(),
+    ]);
+
+    return ok({
+      users: users.map(serializeUser),
+      total,
+      ...(hasPagination ? { page, totalPages: Math.ceil(total / limit), limit } : {}),
+    });
   } catch (e: any) {
     return err(e.message, 500);
   }

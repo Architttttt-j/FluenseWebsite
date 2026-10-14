@@ -15,9 +15,11 @@ export async function GET(req: NextRequest) {
     if (me.role === "admin") query.regionId = me.regionId;
     if (me.role === "head_admin" && searchParams.get("regionId")) query.regionId = searchParams.get("regionId");
 
-    const mrs = await User.find(query);
+    const mrs = await User.find(query).select("_id").lean();
     const mrIds = mrs.map((u: any) => u._id.toString());
-    const present = await Attendance.find({ mrId: { $in: mrIds }, date: today() });
+    const present = mrIds.length
+      ? await Attendance.find({ mrId: { $in: mrIds }, date: today() }).select("mrId").lean()
+      : [];
     const presentIds = present.map((a: any) => a.mrId);
 
     return ok({

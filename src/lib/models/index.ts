@@ -7,6 +7,7 @@ const RegionSchema = new Schema({
   headId: { type: String, default: null },
 }, { timestamps: true });
 
+RegionSchema.index({ name: 1 });
 export const Region = models.Region || model("Region", RegionSchema);
 
 // ─── User ────────────────────────────────────────────────────────────────────
@@ -24,6 +25,10 @@ const UserSchema = new Schema({
   avatarUrl:    { type: String, default: null },
 }, { timestamps: true });
 
+UserSchema.index({ role: 1, regionId: 1, status: 1 });
+UserSchema.index({ regionId: 1, role: 1 });
+UserSchema.index({ status: 1 });
+UserSchema.index({ name: 1 });
 export const User = models.User || model("User", UserSchema);
 
 // ─── Client ──────────────────────────────────────────────────────────────────
@@ -40,6 +45,9 @@ const ClientSchema = new Schema({
   status:    { type: String, enum: ["active", "inactive"], default: "active" },
 }, { timestamps: true });
 
+ClientSchema.index({ regionId: 1, status: 1, type: 1 });
+ClientSchema.index({ status: 1, type: 1 });
+ClientSchema.index({ name: 1 });
 export const Client = models.Client || model("Client", ClientSchema);
 
 // ─── AttendanceLog ────────────────────────────────────────────────────────────
@@ -56,6 +64,9 @@ const AttendanceSchema = new Schema({
 }, { timestamps: true });
 
 AttendanceSchema.index({ mrId: 1, date: 1 }, { unique: true });
+AttendanceSchema.index({ date: 1, status: 1 });
+AttendanceSchema.index({ mrId: 1, date: -1 });
+AttendanceSchema.index({ date: -1 });
 export const Attendance = models.Attendance || model("Attendance", AttendanceSchema);
 
 // ─── VisitLog ─────────────────────────────────────────────────────────────────
@@ -72,6 +83,10 @@ const VisitSchema = new Schema({
 }, { timestamps: true });
 
 VisitSchema.index({ mrId: 1, date: 1 });
+VisitSchema.index({ mrId: 1, date: -1 });
+VisitSchema.index({ clientId: 1, date: -1 });
+VisitSchema.index({ date: -1 });
+VisitSchema.index({ products: 1 });
 export const Visit = models.Visit || model("Visit", VisitSchema);
 
 // ─── DailyGoal ────────────────────────────────────────────────────────────────
@@ -83,6 +98,8 @@ const GoalSchema = new Schema({
   description: { type: String, default: null },
 }, { timestamps: true });
 
+GoalSchema.index({ mrId: 1, date: 1 }, { unique: true });
+GoalSchema.index({ date: 1 });
 export const Goal = models.Goal || model("Goal", GoalSchema);
 
 // ─── Product ────────────────────────────────────────────────────────────────
@@ -94,4 +111,5 @@ const ProductSchema = new Schema({
   brochureUrl: { type: String, default: "" },
 }, { timestamps: true });
 
+ProductSchema.index({ name: 1 });
 export const Product = models.Product || model("Product", ProductSchema);

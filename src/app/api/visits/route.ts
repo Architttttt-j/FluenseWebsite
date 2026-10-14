@@ -1,7 +1,7 @@
 import { NextRequest } from "next/server";
 import { connectDB } from "@/lib/db/mongoose";
 import { Visit, User } from "@/lib/models";
-import { ok, err, serializeDoc, getAuthUserDoc, daysAgo } from "@/lib/utils";
+import { ok, err, serializeDoc, getAuthUserDoc, daysAgo, parsePagination } from "@/lib/utils";
 
 export async function GET(req: NextRequest) {
   try {
@@ -18,12 +18,12 @@ export async function GET(req: NextRequest) {
       const mrId = searchParams.get("mrId");
       if (mrId) {
         if (me.role === "admin") {
-          const target = await User.findById(mrId);
-          if (target && target.regionId !== me.regionId) return err("Access denied", 403);
+          const target = await User.findById(mrId).select("regionId").lean();
+          if (target && (target as any).regionId !== me.regionId) return err("Access denied", 403);
         }
         query.mrId = mrId;
       } else if (me.role === "admin") {
-        const regionMrs = await User.find({ regionId: me.regionId, role: "mr" });
+        const regionMrs = await User.find({ regionId: me.regionId, role: "mr" }).select("_id").lean();
         query.mrId = { $in: regionMrs.map((u: any) => u._id.toString()) };
       } else if (me.role === "head_admin") {
         const regionId = searchParams.get("regionId");
@@ -39,19 +39,24 @@ export async function GET(req: NextRequest) {
     const from = searchParams.get("from");
     const to = searchParams.get("to");
     const days = parseInt(searchParams.get("days") || "30");
-    const limit = parseInt(searchParams.get("limit") || "100");
+    const { page, limit, skip, hasPagination } = parsePagination(searchParams, 100, 10000);
 
     if (clientId) query.clientId = clientId;
     if (date) query.date = date;
     else if (from || to) query.date = { ...(from ? { $gte: from } : {}), ...(to ? { $lte: to } : {}) };
     else query.date = { $gte: daysAgo(days) };
 
-    const visits = await Visit.find(query).sort({ date: -1 }).limit(limit).lean();
+    const visitsQuery = Visit.find(query).sort({ date: -1 });
+    if (hasPagination) visitsQuery.skip(skip);
+    const visits = await visitsQuery.limit(limit).lean();
 
-    const clientIds = Array.from(new Set(visits.map((v: any) => v.clientId)));
-    const mrIds = Array.from(new Set(visits.map((v: any) => v.mrId)));
-    const clients = await import('@/lib/models').then(m => m.Client.find({ _id: { $in: clientIds } }).lean());
-    const mrs = await User.find({ _id: { $in: mrIds } }).select("name").lean();
+    const clientIds = Array.from(new Set(visits.map((v: any) => v.clientId).filter(Boolean)));
+    const mrIds = Array.from(new Set(visits.map((v: any) => v.mrId).filter(Boolean)));
+    const [clients, mrs] = await Promise.all([
+      clientIds.length ? (await import("@/lib/models")).Client.find({ _id: { $in: clientIds } }).select("name").lean() : [],
+      mrIds.length ? User.find({ _id: { $in: mrIds } }).select("name").lean() : [],
+    ]);
+
     const clientMap = clients.reduce((acc: any, c: any) => {
       acc[c._id.toString()] = c.name;
       return acc;

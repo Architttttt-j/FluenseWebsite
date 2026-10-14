@@ -53,12 +53,24 @@ export function withDB<T>(
   };
 }
 
-// Get full user doc from auth token
-export async function getAuthUserDoc(req: NextRequest) {
+// Helper to parse pagination parameters consistently
+export function parsePagination(searchParams: URLSearchParams, defaultLimit = 50, maxLimit = 200) {
+  const pageParam = searchParams.get("page");
+  const limitParam = searchParams.get("limit");
+  const hasPagination = pageParam !== null;
+  const page = Math.max(1, parseInt(pageParam || "1", 10) || 1);
+  const rawLimit = parseInt(limitParam || String(defaultLimit), 10) || defaultLimit;
+  const limit = Math.min(Math.max(1, rawLimit), maxLimit);
+  const skip = (page - 1) * limit;
+  return { page, limit, skip, hasPagination };
+}
+
+// Get auth user doc from auth token (optimized: excludes passwordHash and uses lean)
+export async function getAuthUserDoc(req: NextRequest): Promise<any> {
   await connectDB();
   const payload = await getAuthUser(req);
   if (!payload) return null;
-  const user = await User.findById(payload.sub);
+  const user = (await User.findById(payload.sub).select("-passwordHash").lean()) as any;
   if (!user || user.status !== "active") return null;
   return user;
 }

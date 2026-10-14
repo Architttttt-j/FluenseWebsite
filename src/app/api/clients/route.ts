@@ -1,7 +1,7 @@
 import { NextRequest } from "next/server";
 import { connectDB } from "@/lib/db/mongoose";
 import { Client } from "@/lib/models";
-import { ok, err, serializeDoc, getAuthUserDoc } from "@/lib/utils";
+import { ok, err, serializeDoc, getAuthUserDoc, parsePagination } from "@/lib/utils";
 
 export async function GET(req: NextRequest) {
   try {
@@ -22,17 +22,32 @@ export async function GET(req: NextRequest) {
     const type = searchParams.get("type");
     if (type) query.type = type;
 
-    let clients = await Client.find(query);
-
     const search = searchParams.get("search");
     if (search) {
-      const s = search.toLowerCase();
-      clients = clients.filter((c: any) =>
-        c.name.toLowerCase().includes(s) ||
-        (c.address && c.address.toLowerCase().includes(s))
-      );
+      query.$or = [
+        { name: { $regex: search, $options: "i" } },
+        { address: { $regex: search, $options: "i" } },
+        { specialty: { $regex: search, $options: "i" } },
+      ];
     }
 
+    const { page, limit, skip, hasPagination } = parsePagination(searchParams, 100, 500);
+
+    if (hasPagination) {
+      const [total, clients] = await Promise.all([
+        Client.countDocuments(query),
+        Client.find(query).sort({ name: 1 }).skip(skip).limit(limit).lean(),
+      ]);
+      return ok({
+        clients: clients.map(serializeDoc),
+        total,
+        page,
+        totalPages: Math.ceil(total / limit),
+        limit,
+      });
+    }
+
+    const clients = await Client.find(query).sort({ name: 1 }).limit(limit).lean();
     return ok(clients.map(serializeDoc));
   } catch (e: any) {
     return err(e.message, 500);

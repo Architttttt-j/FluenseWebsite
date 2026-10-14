@@ -18,24 +18,41 @@ export async function GET(req: NextRequest) {
     if (me.role === "admin") query.regionId = me.regionId;
     else if (searchParams.get("regionId")) query.regionId = searchParams.get("regionId");
 
-    const mrs = await User.find(query);
+    const mrs = await User.find(query).select("_id name region status").lean();
+    if (!mrs.length) return ok([]);
 
-    const results = await Promise.all(
-      mrs.map(async (mr: any) => {
-        const visits = await Visit.countDocuments({
-          mrId: mr._id.toString(),
+    const mrIds = mrs.map((mr: any) => mr._id.toString());
+    const visitCounts = await Visit.aggregate([
+      {
+        $match: {
+          mrId: { $in: mrIds },
           date: { $gte: range.start, $lte: range.end },
-        });
-        return {
-          id: mr._id.toString(),
-          name: mr.name,
-          firstName: mr.name.split(" ")[0],
-          region: mr.region,
-          status: mr.status,
-          visits,
-        };
-      })
-    );
+        },
+      },
+      {
+        $group: {
+          _id: "$mrId",
+          visits: { $sum: 1 },
+        },
+      },
+    ]);
+
+    const countMap = new Map<string, number>();
+    for (const v of visitCounts) {
+      countMap.set(String(v._id), v.visits);
+    }
+
+    const results = mrs.map((mr: any) => {
+      const idStr = mr._id.toString();
+      return {
+        id: idStr,
+        name: mr.name,
+        firstName: mr.name.split(" ")[0],
+        region: mr.region,
+        status: mr.status,
+        visits: countMap.get(idStr) || 0,
+      };
+    });
 
     return ok(results.sort((a, b) => b.visits - a.visits));
   } catch (e: any) {

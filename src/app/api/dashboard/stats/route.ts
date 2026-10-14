@@ -15,22 +15,34 @@ export async function GET(req: NextRequest) {
 
     let mrIds: string[] = [];
     if (targetMrId) {
-      const target = await User.findById(targetMrId);
-      if (!target || target.role !== "mr") return err("MR not found", 404);
-      if (me.role === "mr" && target._id.toString() !== me._id.toString()) return err("Unauthorized", 403);
-      if (me.role === "admin" && target.regionId !== me.regionId) return err("Unauthorized", 403);
+      const target = await User.findById(targetMrId).select("_id role regionId").lean();
+      if (!target || (target as any).role !== "mr") return err("MR not found", 404);
+      if (me.role === "mr" && (target as any)._id.toString() !== me._id.toString()) return err("Unauthorized", 403);
+      if (me.role === "admin" && (target as any).regionId !== me.regionId) return err("Unauthorized", 403);
       mrIds = [targetMrId];
     } else if (me.role === "mr") {
       mrIds = [me._id.toString()];
     } else if (me.role === "admin") {
-      const mrs = await User.find({ regionId: me.regionId, role: "mr", status: "active" });
+      const mrs = await User.find({ regionId: me.regionId, role: "mr", status: "active" }).select("_id").lean();
       mrIds = mrs.map((u: any) => u._id.toString());
     } else {
       const regionId = searchParams.get("regionId");
       const query: any = { role: "mr", status: "active" };
       if (regionId) query.regionId = regionId;
-      const mrs = await User.find(query);
+      const mrs = await User.find(query).select("_id").lean();
       mrIds = mrs.map((u: any) => u._id.toString());
+    }
+
+    if (mrIds.length === 0) {
+      return ok({
+        totalMrs: 0,
+        presentToday: 0,
+        visitsToday: 0,
+        visitsThisWeek: 0,
+        visitsThisMonth: 0,
+        visitsInPeriod: 0,
+        avgVisitsPerMr: 0,
+      });
     }
 
     const todayStr = today();

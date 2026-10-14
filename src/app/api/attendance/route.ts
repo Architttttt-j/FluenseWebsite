@@ -1,7 +1,7 @@
 import { NextRequest } from "next/server";
 import { connectDB } from "@/lib/db/mongoose";
 import { Attendance, User, Visit, Client, Product } from "@/lib/models";
-import { ok, err, serializeDoc, getAuthUserDoc, today, daysAgo } from "@/lib/utils";
+import { ok, err, serializeDoc, getAuthUserDoc, today, daysAgo, parsePagination } from "@/lib/utils";
 
 export async function GET(req: NextRequest) {
   try {
@@ -40,19 +40,33 @@ export async function GET(req: NextRequest) {
       }
     }
 
-    const logs = await Attendance.find(query).sort({ date: -1 }).lean();
+    const { page, limit, skip, hasPagination } = parsePagination(searchParams, 50, 500);
+
+    const logsQuery = Attendance.find(query).sort({ date: -1 });
+    if (hasPagination) logsQuery.skip(skip);
+    const logs = await logsQuery.limit(limit).lean();
+
     const mrIds = Array.from(new Set(logs.map((log: any) => log.mrId).filter(Boolean)));
+    const distinctDates = Array.from(new Set(logs.map((log: any) => log.date).filter(Boolean)));
+
     const mrs = mrIds.length ? await User.find({ _id: { $in: mrIds } }).select("name").lean() : [];
     const mrNames = mrs.reduce((map: Record<string, string>, mr: any) => {
       map[mr._id.toString()] = mr.name;
       return map;
     }, {});
-    const visitKeys = logs.map((log: any) => ({ mrId: log.mrId, date: log.date }));
-    const visits = visitKeys.length ? await Visit.find({ $or: visitKeys }).lean() : [];
-    const clientIds = Array.from(new Set(visits.map((visit: any) => visit.clientId)));
-    const clients = clientIds.length ? await Client.find({ _id: { $in: clientIds } }).lean() : [];
+
+    // Avoid massive $or array by using compound index on mrId and date
+    const visits = (mrIds.length && distinctDates.length)
+      ? await Visit.find(
+          { mrId: { $in: mrIds }, date: { $in: distinctDates } },
+          { mrId: 1, date: 1, clientId: 1, products: 1 }
+        ).lean()
+      : [];
+
+    const clientIds = Array.from(new Set(visits.map((visit: any) => visit.clientId).filter(Boolean)));
+    const clients = clientIds.length ? await Client.find({ _id: { $in: clientIds } }).select("name type").lean() : [];
     const productCodes = Array.from(new Set(visits.flatMap((visit: any) => visit.products || [])));
-    const products = productCodes.length ? await Product.find({ code: { $in: productCodes } }).lean() : [];
+    const products = productCodes.length ? await Product.find({ code: { $in: productCodes } }).select("code name").lean() : [];
     const clientMap = clients.reduce((map: Record<string, any>, client: any) => {
       map[client._id.toString()] = { name: client.name, type: client.type };
       return map;
