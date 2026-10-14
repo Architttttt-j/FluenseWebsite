@@ -58,7 +58,7 @@ export default function ReportsPage() {
       api.getVisits({ from: reportRange.start, to: reportRange.end, limit: "10000", ...(selectedRegion ? { regionId: selectedRegion } : {}) }),
     ]);
     setStats(s); setMrPerf(mr.slice(0,8)); setProd(prod);
-    setReportClients(clients || []); setReportVisits(visits || []);
+    setReportClients(Array.isArray(clients) ? clients : (clients?.clients || [])); setReportVisits(visits || []);
     if (activeUser?.role === "head_admin") {
       api.getRegionComparison(p as any).then(setRegions);
     }
